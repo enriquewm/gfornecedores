@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App de Gestión de Proveedores</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+    h1, h2 { color: #003366; }
+    nav { background: #003366; padding: 10px; }
+    nav button { color: white; background: transparent; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; }
+    nav button.active { background: #005599; }
+    section { display: none; padding: 20px; background: white; margin-top: 10px; border-radius: 8px; }
+    section.active { display: block; }
+    label { display: block; margin-top: 10px; }
+    input, select, textarea { padding: 6px; width: 100%; margin-top: 4px; }
+    button.submit { margin-top: 10px; padding: 8px 16px; background: #003366; color: white; border: none; cursor: pointer; }
+    table { margin-top: 20px; width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+    .alerta { background-color: #ffcccc; }
+    select.inline { width: auto; }
+  </style>
+</head>
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+    <h1 style="margin: 0;">Gestión de Proveedores</h1>
+    <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="mostrar(event, 'login')">
+      <span style="font-size: 18px;">👤</span>
+      <span style="color: #003366; font-weight: bold;">Iniciar Sesión</span>
+    </div>
+  </div>
+  <nav>
+    <button onclick="mostrar(event, 'pendencias')">Pendencias Ariba</button>
+    <button onclick="mostrar(event, 'solicitudes')">Solicitudes Internas</button>
+    <button onclick="mostrar(event, 'historico')">Histórico</button>
+  <button onclick="mostrar(event, 'graficos')">Dashboard</button>
+  </nav>
+
+  <section id="login" class="active">
+    <h2>Inicio de Sesión</h2>
+    <form id="formLogin">
+      <label>Usuario:<input type="text" id="usuario" required /></label>
+      <label>Contraseña:<input type="password" id="contrasena" required /></label>
+      <button class="submit" type="submit">Entrar</button>
+    </form>
+  </section>
+
+  <section id="pendencias">
+    <h2>Pendencias desde Ariba</h2>
+    <input type="text" placeholder="🔍 Buscar proveedor (inactivo)" disabled style="width: 100%; margin: 10px 0; padding: 6px; font-style: italic;" />
+    <table id="tablaPendencias">
+      <thead>
+        <tr>
+          <th>Proveedor</th>
+          <th>Registro</th>
+          <th>Calificación</th>
+          <th>Crítico</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="solicitudes">
+    <h2>Solicitudes Internas de Proveedores</h2>
+    <form id="formSolicitud">
+      <label>Nombre del proveedor:<input type="text" id="nombreProveedor" required /></label>
+      <label>País:<input type="text" id="pais" required /></label>
+      <label>Tipo de compra:<input type="text" id="tipoCompra" required /></label>
+      <label>Tipo de solicitud:
+        <select id="tipoSolicitud">
+          <option value="Normal">Normal</option>
+          <option value="Emergencial">Emergencial</option>
+        </select>
+      </label>
+      <label>Justificación:<textarea id="justificacion" required></textarea></label>
+      <label>Solicitante:<input type="text" id="solicitante" required /></label>
+      <button class="submit" type="submit">Enviar Solicitud</button>
+    </form>
+
+    <h3>Solicitudes Pendientes</h3>
+    <input type="text" placeholder="🔍 Buscar solicitud (inactivo)" disabled style="width: 100%; margin: 10px 0; padding: 6px; font-style: italic;" />
+    <table id="tablaSolicitudes">
+      <thead>
+        <tr>
+          <th>Proveedor</th>
+          <th>País</th>
+          <th>Tipo Compra</th>
+          <th>Solicitud</th>
+          <th>Solicitante</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="historico">
+    <h2>Histórico de Proveedores Resueltos</h2>
+    <input type="text" placeholder="🔍 Buscar en histórico (inactivo)" disabled style="width: 100%; margin: 10px 0; padding: 6px; font-style: italic;" />
+    <table id="tablaHistorico">
+      <thead>
+        <tr>
+          <th>Proveedor</th>
+          <th>Registro</th>
+          <th>Calificación</th>
+          <th>Crítico</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="graficos">
+    <h2>Dashboard de Avance</h2>
+    <canvas id="graficoPendencias" width="400" height="200"></canvas>
+    <canvas id="graficoSolicitudes" width="400" height="200"></canvas>
+    <canvas id="graficoHistorico" width="400" height="200"></canvas>
+    <button class="submit" disabled style="margin-top: 20px; opacity: 0.6;">📊 Generar Relatório (Inactivo)</button>
+  </section>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const tablaPendencias = document.querySelector('#tablaPendencias tbody');
+    const tablaSolicitudes = document.querySelector('#tablaSolicitudes tbody');
+    const tablaHistorico = document.querySelector('#tablaHistorico tbody');
+    const formSolicitud = document.getElementById('formSolicitud');
+    const formLogin = document.getElementById('formLogin');
+
+    let pendencias = [
+  { nombre: 'Lorem Ipsum S.A.', registro: 'Incompleto', calificacion: 'Incompleto', tipo: 'Normal', estado: 'Pendiente' },
+  { nombre: 'Dolor Sit Amet Ltda.', registro: 'Completo', calificacion: 'Incompleto', tipo: 'Emergencial', estado: 'Pendiente' },
+  { nombre: 'Consectetur Inc.', registro: 'Completo', calificacion: 'Completo', tipo: 'Normal', estado: 'Resuelto' },
+  { nombre: 'Adipiscing Elit Corp.', registro: 'Incompleto', calificacion: 'Completo', tipo: 'Emergencial', estado: 'Pendiente' },
+  { nombre: 'Sed Do Eiusmod GmbH', registro: 'Completo', calificacion: 'Completo', tipo: 'Normal', estado: 'Resuelto' }
+];
+    let solicitudes = [
+  { nombre: 'Lorem Supplier 1', pais: 'México', tipoCompra: 'Material', tipo: 'Normal', justificacion: 'Prueba 1', solicitante: 'Juan' },
+  { nombre: 'Ipsum Supplier 2', pais: 'Brasil', tipoCompra: 'Servicio', tipo: 'Emergencial', justificacion: 'Prueba 2', solicitante: 'Maria' }
+];
+    let historico = [
+  { nombre: 'Resolved One', registro: 'Completo', calificacion: 'Completo', tipo: 'Normal' },
+  { nombre: 'Resolved Two', registro: 'Incompleto', calificacion: 'Completo', tipo: 'Emergencial' },
+  { nombre: 'Resolved Three', registro: 'Completo', calificacion: 'Incompleto', tipo: 'Normal' }
+];
+    let usuarios = [
+      { usuario: "admin", contrasena: "1234", rol: "admin" },
+      { usuario: "comprador", contrasena: "abcd", rol: "limitado" }
+    ];
+    let usuarioActivo = null;
+
+    function mostrar(event, id) {
+      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    formLogin.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const user = document.getElementById('usuario').value;
+      const pass = document.getElementById('contrasena').value;
+      const found = usuarios.find(u => u.usuario === user && u.contrasena === pass);
+      if (found) {
+        usuarioActivo = found;
+        alert(`Bienvenido ${user}`);
+        mostrar({target: document.querySelector('nav button:nth-child(2)')}, 'pendencias');
+        document.getElementById('formSolicitud').style.display = found.rol === 'admin' ? 'block' : 'none';
+      } else {
+        alert('Usuario o contraseña incorrectos');
+      }
+    });
+
+    function guardarDatos() {
+      localStorage.setItem('pendencias', JSON.stringify(pendencias));
+      localStorage.setItem('solicitudes', JSON.stringify(solicitudes));
+      localStorage.setItem('historico', JSON.stringify(historico));
+    }
+
+    function renderPendencias() {
+      tablaPendencias.innerHTML = '';
+      pendencias.forEach((prov, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${prov.nombre}</td>
+          <td>
+            <select class="inline" onchange="actualizarCampo(${index}, 'registro', this.value)">
+              <option value="Incompleto" ${prov.registro === 'Incompleto' ? 'selected' : ''}>Incompleto</option>
+              <option value="Completo" ${prov.registro === 'Completo' ? 'selected' : ''}>Completo</option>
+            </select>
+          </td>
+          <td>
+            <select class="inline" onchange="actualizarCampo(${index}, 'calificacion', this.value)">
+              <option value="Incompleto" ${prov.calificacion === 'Incompleto' ? 'selected' : ''}>Incompleto</option>
+              <option value="Completo" ${prov.calificacion === 'Completo' ? 'selected' : ''}>Completo</option>
+            </select>
+          </td>
+          <td>${prov.tipo === 'Emergencial' ? 'Sí' : 'No'}</td>
+          <td>${prov.estado}</td>
+          <td><button onclick="resolverPendencia(${index})">Resolver</button></td>
+        `;
+        tablaPendencias.appendChild(tr);
+      });
+    }
+
+    function renderSolicitudes() {
+      tablaSolicitudes.innerHTML = '';
+      solicitudes.forEach(prov => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${prov.nombre}</td>
+          <td>${prov.pais}</td>
+          <td>${prov.tipoCompra}</td>
+          <td>${prov.tipo}</td>
+          <td>${prov.solicitante}</td>
+        `;
+        tablaSolicitudes.appendChild(tr);
+      });
+    }
+
+    function renderHistorico() {
+      tablaHistorico.innerHTML = '';
+      historico.forEach(prov => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${prov.nombre}</td>
+          <td>${prov.registro}</td>
+          <td>${prov.calificacion}</td>
+          <td>${prov.tipo === 'Emergencial' ? 'Sí' : 'No'}</td>
+          <td>Resuelto</td>
+        `;
+        tablaHistorico.appendChild(tr);
+      });
+    }
+
+    function actualizarCampo(index, campo, valor) {
+      pendencias[index][campo] = valor;
+      guardarDatos();
+      renderPendencias();
+    }
+
+    function resolverPendencia(index) {
+      const prov = pendencias.splice(index, 1)[0];
+      historico.push(prov);
+      guardarDatos();
+      renderPendencias();
+      renderHistorico();
+
+    // Cargar datos ficticios para gráficos
+    const datosFicticios = {
+  pendencias: pendencias,
+  solicitudes: solicitudes,
+  historico: historico
+};
+
+    function contarEstadosPendencias(data) {
+      const pendientes = data.filter(p => p.estado === 'Pendiente').length;
+      const resueltos = data.filter(p => p.estado === 'Resuelto').length;
+      return [pendientes, resueltos];
+    }
+
+    function generarGrafico(id, etiquetas, datos, titulo) {
+      new Chart(document.getElementById(id), {
+        type: 'bar',
+        data: {
+          labels: etiquetas,
+          datasets: [{
+            label: titulo,
+            data: datos,
+            backgroundColor: ['#f39c12', '#27ae60']
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    const [pendientes, resueltos] = contarEstadosPendencias(datosFicticios.pendencias);
+    generarGrafico('graficoPendencias', ['Pendientes', 'Resueltos'], [pendientes, resueltos], 'Pendencias Ariba');
+    generarGrafico('graficoSolicitudes', ['Solicitudes'], [datosFicticios.solicitudes.length], 'Solicitudes Internas');
+    generarGrafico('graficoHistorico', ['Histórico'], [datosFicticios.historico.length], 'Total Resueltos');
+    }
+
+    formSolicitud.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const proveedor = {
+        nombre: document.getElementById('nombreProveedor').value,
+        pais: document.getElementById('pais').value,
+        tipoCompra: document.getElementById('tipoCompra').value,
+        tipo: document.getElementById('tipoSolicitud').value,
+        justificacion: document.getElementById('justificacion').value,
+        solicitante: document.getElementById('solicitante').value,
+        registro: 'Incompleto',
+        calificacion: 'Incompleto',
+        estado: 'Pendiente'
+      };
+      solicitudes.push(proveedor);
+      guardarDatos();
+      renderSolicitudes();
+      formSolicitud.reset();
+    });
+
+    renderPendencias();
+    renderSolicitudes();
+    renderHistorico();
+  </script>
+  <footer style="margin-top: 40px; text-align: center; font-size: 14px; color: #666;">
+    Proyecto de Gestión de Proveedores desarrollado por 
+    <a href="#" target="_blank" style="color: #003366; font-weight: bold; text-decoration: none;">
+      SAUL ENRIQUE LAREZ ROSILLO
+    </a>
+  </footer>
+</body>
+</html>
